@@ -109,4 +109,26 @@ const deleteNote = async (req, res) => {
   }
 };
 
-module.exports = { createNote, getNotesByPatient, updateNote, deleteNote };
+/**
+ * GET /medicine-strip/my-notes
+ * Returns notes for the logged-in patient ONLY if both patientId and patientName match.
+ */
+const getMyNotes = async (req, res) => {
+  try {
+    if (req.user.role !== "patient") {
+        return res.status(403).json({ message: "Only patients can view their medicine strip" });
+    }
+
+    const notes = await MedicineStrip.find({ 
+      patientId: req.user._id,
+      patientName: req.user.name
+    }).sort({ createdAt: -1 }); // newest first
+
+    return res.json({ notes });
+  } catch (error) {
+    console.error("[MedicineStrip] getMyNotes error:", error);
+    return res.status(500).json({ message: "Failed to fetch your notes" });
+  }
+};
+
+module.exports = { createNote, getNotesByPatient, updateNote, deleteNote, getMyNotes };
