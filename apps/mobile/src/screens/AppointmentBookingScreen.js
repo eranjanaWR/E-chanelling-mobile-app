@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { ActivityIndicator, FlatList, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
+import { ActivityIndicator, FlatList, Pressable, StyleSheet, Text, View } from "react-native";
 import api from "../services/api";
 import { scheduleAppointmentReminders } from "../services/notifications";
 
@@ -14,14 +14,44 @@ const formatDate = (value) => {
   });
 };
 
+const formatDateOption = (iso) => {
+  const d = new Date(`${iso}T00:00:00`);
+  return d.toLocaleDateString(undefined, { weekday: "short", day: "numeric", month: "short", year: "numeric" });
+};
+
 const AppointmentBookingScreen = ({ route, navigation }) => {
   const { doctor } = route.params || {};
   const [appointmentDate, setAppointmentDate] = useState("");
   const [timeSlot, setTimeSlot] = useState("");
+  const [selectedDay, setSelectedDay] = useState("");
+  const [showDateOptions, setShowDateOptions] = useState(false);
   const [nextQueueNumber, setNextQueueNumber] = useState(null);
   const [loadingQueueNumber, setLoadingQueueNumber] = useState(false);
+  const [selectedCenter, setSelectedCenter] = useState(null);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+
+  const dateOptions = useMemo(() => {
+    if (!selectedDay) return [];
+    const dayNames = ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"];
+    const targetIndex = dayNames.indexOf(selectedDay.toLowerCase());
+    if (targetIndex === -1) return [];
+
+    const options = [];
+    const cursor = new Date();
+    cursor.setHours(0, 0, 0, 0);
+
+    for (let i = 0; i < 45 && options.length < 6; i += 1) {
+      const candidate = new Date(cursor);
+      candidate.setDate(cursor.getDate() + i);
+      if (candidate.getDay() === targetIndex) {
+        const iso = candidate.toISOString().slice(0, 10);
+        options.push(iso);
+      }
+    }
+
+    return options;
+  }, [selectedDay]);
 
   const availableSlots = useMemo(() => {
     if (!doctor) return [];
@@ -33,6 +63,7 @@ const AppointmentBookingScreen = ({ route, navigation }) => {
           slots.push({
             centerName: center.name,
             centerLocation: center.location || "",
+            consultationFee: center.consultationFee ?? null,
             day: slot.day,
             startTime: slot.startTime,
             endTime: slot.endTime,
@@ -101,17 +132,24 @@ const AppointmentBookingScreen = ({ route, navigation }) => {
     }
 
     try {
-      await api.post("/appointments", {
+      const res = await api.post("/appointments", {
         doctorId: doctor._id,
         appointmentDate: parsedDate.toISOString(),
         timeSlot: timeSlot.trim(),
       });
       await scheduleAppointmentReminders(parsedDate, doctor?.name);
-      setSuccess("Appointment booked successfully");
       setAppointmentDate("");
       setTimeSlot("");
       setNextQueueNumber(null);
-      navigation.navigate("Dashboard");
+      navigation.navigate("Payment", {
+        appointmentId: res.data.appointment._id,
+        doctor,
+        appointmentDate: appointmentDate.trim(),
+        timeSlot: timeSlot.trim(),
+        consultationFee: selectedCenter?.consultationFee ?? null,
+        centerName: selectedCenter?.name ?? null,
+        centerLocation: selectedCenter?.location ?? null,
+      });
     } catch (err) {
       setError(err?.response?.data?.message || "Failed to book appointment");
     }
@@ -133,19 +171,6 @@ const AppointmentBookingScreen = ({ route, navigation }) => {
         </Text>
       ) : null}
 
-      <TextInput
-        style={styles.input}
-        placeholder="Date (YYYY-MM-DD)"
-        value={appointmentDate}
-        onChangeText={setAppointmentDate}
-      />
-      <TextInput
-        style={styles.input}
-        placeholder="Time slot (e.g. 09:00 AM)"
-        value={timeSlot}
-        onChangeText={setTimeSlot}
-      />
-
       {availableSlots.length > 0 ? (
         <View style={styles.slotSection}>
           <Text style={styles.sectionTitle}>Available Slots</Text>
@@ -163,12 +188,25 @@ const AppointmentBookingScreen = ({ route, navigation }) => {
                 : "";
               return (
                 <Pressable
-                  style={styles.slotButton}
-                  onPress={() => setTimeSlot(label)}
+                  style={[styles.slotButton, timeSlot === label && styles.slotButtonActive]}
+                  onPress={() => {
+                    const newDay = item.day || "";
+                    if (newDay !== selectedDay) {
+                      setAppointmentDate("");
+                    }
+                    setTimeSlot(label);
+                    setSelectedDay(newDay);
+                    setShowDateOptions(true);
+                    setSelectedCenter(
+                      item.centerName
+                        ? { name: item.centerName, location: item.centerLocation, consultationFee: item.consultationFee }
+                        : null
+                    );
+                  }}
                 >
                   <View>
-                    <Text style={styles.slotText}>{label}</Text>
-                    {subtitle ? <Text style={styles.slotSubtitle}>{subtitle}</Text> : null}
+                    <Text style={[styles.slotText, timeSlot === label && styles.slotTextActive]}>{label}</Text>
+                    {subtitle ? <Text style={[styles.slotSubtitle, timeSlot === label && styles.slotSubtitleActive]}>{subtitle}</Text> : null}
                   </View>
                 </Pressable>
               );
@@ -178,6 +216,43 @@ const AppointmentBookingScreen = ({ route, navigation }) => {
       ) : (
         <Text style={styles.hintText}>No time slots available for this doctor yet.</Text>
       )}
+
+      {selectedDay ? (
+        <View style={styles.selectorBlock}>
+          <Text style={styles.sectionTitle}>Select {selectedDay} Date</Text>
+          <Pressable
+            style={styles.selector}
+            onPress={() => setShowDateOptions((prev) => !prev)}
+          >
+            <Text style={appointmentDate ? styles.selectorText : styles.selectorPlaceholder}>
+              {appointmentDate ? formatDateOption(appointmentDate) : `Choose a ${selectedDay}`}
+            </Text>
+            <Text style={styles.chevron}>{showDateOptions ? "▲" : "▼"}</Text>
+          </Pressable>
+
+          {showDateOptions && (
+            <View style={styles.dropdown}>
+              {dateOptions.map((date) => (
+                <Pressable
+                  key={date}
+                  style={[
+                    styles.dropdownItem,
+                    appointmentDate === date && styles.dropdownItemActive,
+                  ]}
+                  onPress={() => {
+                    setAppointmentDate(date);
+                    setShowDateOptions(false);
+                  }}
+                >
+                  <Text style={appointmentDate === date ? styles.dropdownTextActive : styles.dropdownText}>
+                    {formatDateOption(date)}
+                  </Text>
+                </Pressable>
+              ))}
+            </View>
+          )}
+        </View>
+      ) : null}
 
       {loadingQueueNumber ? (
         <View style={styles.queueRow}>
@@ -215,13 +290,6 @@ const styles = StyleSheet.create({
     marginBottom: 16,
     color: "#6b7280",
   },
-  input: {
-    borderWidth: 1,
-    borderColor: "#e5e7eb",
-    padding: 12,
-    borderRadius: 10,
-    marginBottom: 12,
-  },
   primaryButton: {
     backgroundColor: "#111827",
     paddingVertical: 12,
@@ -243,6 +311,34 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     marginBottom: 8,
   },
+  selectorBlock: {
+    marginBottom: 12,
+  },
+  selector: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    borderWidth: 1,
+    borderColor: "#e5e7eb",
+    borderRadius: 10,
+    padding: 12,
+    backgroundColor: "#ffffff",
+  },
+  selectorText: { fontSize: 15, color: "#111827" },
+  selectorPlaceholder: { fontSize: 15, color: "#9ca3af" },
+  chevron: { fontSize: 12, color: "#6b7280" },
+  dropdown: {
+    borderWidth: 1,
+    borderColor: "#e5e7eb",
+    borderRadius: 10,
+    backgroundColor: "#ffffff",
+    marginTop: 6,
+    overflow: "hidden",
+  },
+  dropdownItem: { padding: 12, borderBottomWidth: 1, borderBottomColor: "#f3f4f6" },
+  dropdownItemActive: { backgroundColor: "#111827" },
+  dropdownText: { fontSize: 15, color: "#111827" },
+  dropdownTextActive: { fontSize: 15, color: "#ffffff", fontWeight: "600" },
   slotSection: {
     marginBottom: 16,
   },
@@ -254,14 +350,24 @@ const styles = StyleSheet.create({
     padding: 14,
     marginBottom: 10,
   },
+  slotButtonActive: {
+    backgroundColor: "#111827",
+    borderColor: "#111827",
+  },
   slotText: {
     fontWeight: "600",
     color: "#111827",
+  },
+  slotTextActive: {
+    color: "#ffffff",
   },
   slotSubtitle: {
     marginTop: 4,
     color: "#6b7280",
     fontSize: 13,
+  },
+  slotSubtitleActive: {
+    color: "#d1d5db",
   },
   hintText: {
     color: "#6b7280",

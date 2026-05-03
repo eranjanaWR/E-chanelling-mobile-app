@@ -26,6 +26,15 @@ const DashboardScreen = ({ navigation }) => {
         <Text style={styles.secondaryButtonText}>Manage Profile</Text>
       </Pressable>
 
+      {user?.role === "admin" ? (
+        <Pressable
+          style={styles.secondaryButton}
+          onPress={() => navigation.navigate("AdminAppointments")}
+        >
+          <Text style={styles.secondaryButtonText}>View All Appointments</Text>
+        </Pressable>
+      ) : null}
+
       <Pressable style={styles.ghostButton} onPress={logout}>
         <Text style={styles.ghostButtonText}>Logout</Text>
       </Pressable>

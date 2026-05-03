@@ -13,6 +13,8 @@ import PatientProfileScreen from "../screens/PatientProfileScreen";
 import DoctorProfileScreen from "../screens/DoctorProfileScreen";
 import MedicalCenterFormScreen from "../screens/MedicalCenterFormScreen";
 import ManageTimeSlotsScreen from "../screens/ManageTimeSlotsScreen";
+import PaymentScreen from "../screens/PaymentScreen";
+import AdminAppointmentsScreen from "../screens/AdminAppointmentsScreen";
 
 const Stack = createNativeStackNavigator();
 
@@ -56,6 +58,16 @@ const AppStack = () => (
       name="ManageTimeSlots"
       component={ManageTimeSlotsScreen}
       options={{ title: "Time Slots" }}
+    />
+    <Stack.Screen
+      name="Payment"
+      component={PaymentScreen}
+      options={{ title: "Payment" }}
+    />
+    <Stack.Screen
+      name="AdminAppointments"
+      component={AdminAppointmentsScreen}
+      options={{ title: "All Appointments" }}
     />
   </Stack.Navigator>
 );
