@@ -2,11 +2,14 @@ import React, { useEffect, useState } from "react";
 import { ActivityIndicator, FlatList, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 import api from "../services/api";
 
+const toIsoDate = (date) => date.toISOString().slice(0, 10);
+
 const AdminDoctorsScreen = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState("");
   const [doctors, setDoctors] = useState([]);
   const [availabilityDates, setAvailabilityDates] = useState({});
+  const [availabilityState, setAvailabilityState] = useState({});
 
   useEffect(() => {
     const loadDoctors = async () => {
@@ -15,7 +18,17 @@ const AdminDoctorsScreen = () => {
         setError("");
 
         const response = await api.get("/doctors");
-        setDoctors(response.data?.doctors || []);
+        const doctorList = response.data?.doctors || [];
+        setDoctors(doctorList);
+        setAvailabilityState((prev) => {
+          const nextState = { ...prev };
+          doctorList.forEach((doctor) => {
+            if (!nextState[doctor._id]) {
+              nextState[doctor._id] = doctor.availabilityStatus || "available";
+            }
+          });
+          return nextState;
+        });
       } catch (err) {
         setError(err?.response?.data?.message || "Failed to load doctors");
       } finally {
@@ -27,10 +40,10 @@ const AdminDoctorsScreen = () => {
   }, []);
 
   const updateAvailability = async (doctorId, status) => {
-    const date = availabilityDates[doctorId];
-    if (!date) {
-      setError("Please enter a date before updating availability");
-      return;
+    const fallbackDate = toIsoDate(new Date());
+    const date = availabilityDates[doctorId] || fallbackDate;
+    if (!availabilityDates[doctorId]) {
+      setAvailabilityDates((prev) => ({ ...prev, [doctorId]: date }));
     }
 
     try {
@@ -43,6 +56,7 @@ const AdminDoctorsScreen = () => {
       setDoctors((prev) =>
         prev.map((doctor) => (doctor._id === doctorId ? response.data.doctor : doctor))
       );
+      setAvailabilityState((prev) => ({ ...prev, [doctorId]: status }));
     } catch (err) {
       setError(err?.response?.data?.message || "Failed to update availability");
     }
@@ -79,20 +93,28 @@ const AdminDoctorsScreen = () => {
             <TextInput
               style={styles.dateInput}
               placeholder="YYYY-MM-DD"
-              value={availabilityDates[item._id] || ""}
+              value={availabilityDates[item._id] || item.availabilityDate || ""}
               onChangeText={(value) =>
                 setAvailabilityDates((prev) => ({ ...prev, [item._id]: value }))
               }
             />
             <View style={styles.actionRow}>
               <Pressable
-                style={[styles.actionButton, styles.availableButton]}
+                style={[
+                  styles.actionButton,
+                  styles.availableButton,
+                  availabilityState[item._id] === "available" && styles.actionButtonActive,
+                ]}
                 onPress={() => updateAvailability(item._id, "available")}
               >
                 <Text style={styles.actionButtonText}>Available</Text>
               </Pressable>
               <Pressable
-                style={[styles.actionButton, styles.unavailableButton]}
+                style={[
+                  styles.actionButton,
+                  styles.unavailableButton,
+                  availabilityState[item._id] === "unavailable" && styles.actionButtonActive,
+                ]}
                 onPress={() => updateAvailability(item._id, "unavailable")}
               >
                 <Text style={styles.actionButtonText}>Unavailable</Text>
@@ -162,6 +184,9 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     paddingVertical: 10,
     alignItems: "center",
+  },
+  actionButtonActive: {
+    opacity: 0.85,
   },
   availableButton: {
     backgroundColor: "#16a34a",

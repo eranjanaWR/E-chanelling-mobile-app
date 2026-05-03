@@ -14,10 +14,62 @@ const formatDate = (value) => {
   });
 };
 
+const WEEKDAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+
+const toIsoDate = (date) => date.toISOString().slice(0, 10);
+
+const getUpcomingDatesForDay = (dayName, count = 8) => {
+  if (!dayName) return [];
+  const targetIndex = WEEKDAYS.indexOf(dayName);
+  if (targetIndex < 0) return [];
+
+  const today = new Date();
+  const start = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+  const offset = (targetIndex - start.getDay() + 7) % 7;
+  const firstDate = new Date(start);
+  firstDate.setDate(start.getDate() + offset);
+
+  return Array.from({ length: count }, (_, index) => {
+    const date = new Date(firstDate);
+    date.setDate(firstDate.getDate() + index * 7);
+    return {
+      value: toIsoDate(date),
+      label: date.toLocaleDateString(undefined, {
+        weekday: "short",
+        year: "numeric",
+        month: "short",
+        day: "numeric",
+      }),
+    };
+  });
+};
+
+const extractDayFromLabel = (label) => {
+  if (!label) return "";
+  const day = label.split("·")[0]?.trim();
+  return WEEKDAYS.includes(day) ? day : "";
+};
+
+const getAvailabilityLabel = (doctor) => {
+  if (!doctor) return "";
+  if (doctor.availabilityStatus === "available" && doctor.availabilityDate) {
+    const today = toIsoDate(new Date());
+    return doctor.availabilityDate === today
+      ? "Available today"
+      : `Available on ${doctor.availabilityDate}`;
+  }
+  if (doctor.availabilityStatus === "unavailable") {
+    return "Unavailable";
+  }
+  return "";
+};
+
 const AppointmentBookingScreen = ({ route, navigation }) => {
   const { doctor } = route.params || {};
   const [appointmentDate, setAppointmentDate] = useState("");
   const [timeSlot, setTimeSlot] = useState("");
+  const [selectedDay, setSelectedDay] = useState("");
+  const [showDateOptions, setShowDateOptions] = useState(false);
   const [nextQueueNumber, setNextQueueNumber] = useState(null);
   const [loadingQueueNumber, setLoadingQueueNumber] = useState(false);
   const [error, setError] = useState("");
@@ -79,6 +131,18 @@ const AppointmentBookingScreen = ({ route, navigation }) => {
     fetchQueue();
   }, [appointmentDate, doctor]);
 
+  const dateOptions = useMemo(() => getUpcomingDatesForDay(selectedDay), [selectedDay]);
+
+  const handleTimeSlotChange = (value) => {
+    setTimeSlot(value);
+    const inferredDay = extractDayFromLabel(value);
+    if (inferredDay) {
+      setSelectedDay(inferredDay);
+      setAppointmentDate("");
+      setShowDateOptions(true);
+    }
+  };
+
   const handleBook = async () => {
     setError("");
     setSuccess("");
@@ -126,23 +190,52 @@ const AppointmentBookingScreen = ({ route, navigation }) => {
           Doctor added on {formatDate(doctor.createdAt)}
         </Text>
       ) : null}
-      {doctor?.availabilityDate ? (
-        <Text style={styles.metaText}>
-          Available from {doctor.availabilityDate}
-        </Text>
+      {getAvailabilityLabel(doctor) ? (
+        <Text style={styles.metaText}>{getAvailabilityLabel(doctor)}</Text>
       ) : null}
 
-      <TextInput
+      <Pressable
         style={styles.input}
-        placeholder="Date (YYYY-MM-DD)"
-        value={appointmentDate}
-        onChangeText={setAppointmentDate}
-      />
+        onPress={() => {
+          if (dateOptions.length) {
+            setShowDateOptions((prev) => !prev);
+          }
+        }}
+      >
+        <Text style={appointmentDate ? styles.inputText : styles.placeholderText}>
+          {appointmentDate || "Select date"}
+        </Text>
+      </Pressable>
+      {selectedDay && dateOptions.length > 0 ? (
+        <View style={styles.dropdown}>
+          {showDateOptions ? (
+            <FlatList
+              data={dateOptions}
+              keyExtractor={(item) => item.value}
+              renderItem={({ item }) => (
+                <Pressable
+                  style={styles.dropdownItem}
+                  onPress={() => {
+                    setAppointmentDate(item.value);
+                    setShowDateOptions(false);
+                  }}
+                >
+                  <Text style={styles.dropdownText}>{item.label}</Text>
+                </Pressable>
+              )}
+            />
+          ) : (
+            <Text style={styles.hintText}>Tap to pick a {selectedDay} date.</Text>
+          )}
+        </View>
+      ) : (
+        <Text style={styles.hintText}>Select a time slot to see dates.</Text>
+      )}
       <TextInput
         style={styles.input}
         placeholder="Time slot (e.g. 09:00 AM)"
         value={timeSlot}
-        onChangeText={setTimeSlot}
+        onChangeText={handleTimeSlotChange}
       />
 
       {availableSlots.length > 0 ? (
@@ -159,7 +252,12 @@ const AppointmentBookingScreen = ({ route, navigation }) => {
               return (
                 <Pressable
                   style={styles.slotButton}
-                  onPress={() => setTimeSlot(label)}
+                  onPress={() => {
+                    setTimeSlot(label);
+                    setSelectedDay(item.day);
+                    setAppointmentDate("");
+                    setShowDateOptions(true);
+                  }}
                 >
                   <View>
                     <Text style={styles.slotText}>{label}</Text>
@@ -216,6 +314,29 @@ const styles = StyleSheet.create({
     padding: 12,
     borderRadius: 10,
     marginBottom: 12,
+  },
+  inputText: {
+    color: "#111827",
+  },
+  placeholderText: {
+    color: "#9ca3af",
+  },
+  dropdown: {
+    borderWidth: 1,
+    borderColor: "#e5e7eb",
+    borderRadius: 10,
+    paddingVertical: 6,
+    paddingHorizontal: 8,
+    marginBottom: 12,
+    backgroundColor: "#ffffff",
+  },
+  dropdownItem: {
+    paddingVertical: 10,
+    paddingHorizontal: 8,
+    borderRadius: 8,
+  },
+  dropdownText: {
+    color: "#111827",
   },
   primaryButton: {
     backgroundColor: "#111827",

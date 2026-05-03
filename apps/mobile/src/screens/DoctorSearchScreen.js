@@ -1,12 +1,16 @@
-import React, { useState } from "react";
+import React, { useMemo, useState } from "react";
 import { FlatList, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 import api from "../services/api";
+
+const toIsoDate = (date) => date.toISOString().slice(0, 10);
 
 const DoctorSearchScreen = ({ navigation }) => {
   const [specialty, setSpecialty] = useState("");
   const [day, setDay] = useState("");
   const [doctors, setDoctors] = useState([]);
   const [error, setError] = useState("");
+
+  const today = useMemo(() => toIsoDate(new Date()), []);
 
   const handleSearch = async () => {
     setError("");
@@ -54,6 +58,13 @@ const DoctorSearchScreen = ({ navigation }) => {
           <View style={styles.card}>
             <Text style={styles.cardTitle}>{item.name}</Text>
             <Text style={styles.cardSubtitle}>{item.specialty}</Text>
+            {item.availabilityStatus === "available" && item.availabilityDate === today ? (
+              <Text style={styles.availabilityText}>Available today</Text>
+            ) : item.availabilityStatus === "available" && item.availabilityDate ? (
+              <Text style={styles.availabilityText}>Available on {item.availabilityDate}</Text>
+            ) : item.availabilityStatus === "unavailable" ? (
+              <Text style={styles.unavailableText}>Unavailable</Text>
+            ) : null}
             <Pressable
               style={styles.cardButton}
               onPress={() => navigation.navigate("AppointmentBooking", { doctor: item })}
@@ -120,6 +131,16 @@ const styles = StyleSheet.create({
   cardButtonText: {
     color: "#ffffff",
     textAlign: "center",
+    fontWeight: "600",
+  },
+  availabilityText: {
+    color: "#16a34a",
+    marginTop: 6,
+    fontWeight: "600",
+  },
+  unavailableText: {
+    color: "#dc2626",
+    marginTop: 6,
     fontWeight: "600",
   },
   error: {
