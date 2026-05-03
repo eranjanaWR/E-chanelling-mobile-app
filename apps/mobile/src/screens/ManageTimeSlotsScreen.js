@@ -41,6 +41,8 @@ const ManageTimeSlotsScreen = ({ route, navigation }) => {
   const [selectedDay, setSelectedDay] = useState("Monday");
   const [startTime, setStartTime] = useState("");
   const [endTime, setEndTime] = useState("");
+  const [startMeridiem, setStartMeridiem] = useState("AM");
+  const [endMeridiem, setEndMeridiem] = useState("PM");
   const [adding, setAdding] = useState(false);
   const [error, setError] = useState("");
 
@@ -67,23 +69,47 @@ const ManageTimeSlotsScreen = ({ route, navigation }) => {
     }, [loadSlots])
   );
 
+  const convertTo24Hour = (time12, meridiem) => {
+    const [hourStr, minute] = time12.split(":");
+    let hour = Number(hourStr);
+    if (meridiem === "AM") {
+      if (hour === 12) hour = 0;
+    } else {
+      if (hour !== 12) hour += 12;
+    }
+    const paddedHour = hour.toString().padStart(2, "0");
+    return `${paddedHour}:${minute}`;
+  };
+
   const handleAdd = async () => {
     if (!startTime.trim() || !endTime.trim()) {
       setError("Enter both start and end time");
       return;
     }
+
+    const timePattern = /^(0[1-9]|1[0-2]):([0-5]\d)$/;
+    if (!timePattern.test(startTime.trim()) || !timePattern.test(endTime.trim())) {
+      setError("Times must be in HH:MM format, e.g. 09:00");
+      return;
+    }
+
+    const start24 = convertTo24Hour(startTime.trim(), startMeridiem);
+    const end24 = convertTo24Hour(endTime.trim(), endMeridiem);
+
     setAdding(true);
     setError("");
     try {
       const res = await api.post(`/doctors/medical-centers/${centerId}/time-slots`, {
         day: selectedDay,
-        startTime: startTime.trim(),
-        endTime: endTime.trim(),
+        startTime: start24,
+        endTime: end24,
       });
       const center = res.data.doctor?.medicalCenters?.find((c) => c._id === centerId);
       setTimeSlots(center?.timeSlots ?? []);
       setStartTime("");
       setEndTime("");
+      setStartMeridiem("AM");
+      setEndMeridiem("PM");
     } catch (err) {
       setError(err?.response?.data?.message || "Failed to add slot");
     } finally {
@@ -195,6 +221,28 @@ const ManageTimeSlotsScreen = ({ route, navigation }) => {
               maxLength={5}
               keyboardType="numbers-and-punctuation"
             />
+            <View style={styles.meridiemRow}>
+              {['AM', 'PM'].map((value) => (
+                <Pressable
+                  key={value}
+                  style={[
+                    styles.meridiemBtn,
+                    startMeridiem === value && styles.meridiemBtnActive,
+                  ]}
+                  onPress={() => setStartMeridiem(value)}
+                >
+                  <Text
+                    style={
+                      startMeridiem === value
+                        ? styles.meridiemBtnTextActive
+                        : styles.meridiemBtnText
+                    }
+                  >
+                    {value}
+                  </Text>
+                </Pressable>
+              ))}
+            </View>
           </View>
           <View style={styles.timeField}>
             <Text style={styles.label}>End Time</Text>
@@ -206,10 +254,32 @@ const ManageTimeSlotsScreen = ({ route, navigation }) => {
               maxLength={5}
               keyboardType="numbers-and-punctuation"
             />
+            <View style={styles.meridiemRow}>
+              {['AM', 'PM'].map((value) => (
+                <Pressable
+                  key={value}
+                  style={[
+                    styles.meridiemBtn,
+                    endMeridiem === value && styles.meridiemBtnActive,
+                  ]}
+                  onPress={() => setEndMeridiem(value)}
+                >
+                  <Text
+                    style={
+                      endMeridiem === value
+                        ? styles.meridiemBtnTextActive
+                        : styles.meridiemBtnText
+                    }
+                  >
+                    {value}
+                  </Text>
+                </Pressable>
+              ))}
+            </View>
           </View>
         </View>
 
-        <Text style={styles.hint}>24-hour format  ·  e.g. 09:00, 13:30, 17:00</Text>
+        <Text style={styles.hint}>12-hour format · e.g. 09:00 AM, 01:30 PM</Text>
 
         {error ? <Text style={styles.errorText}>{error}</Text> : null}
 
@@ -295,6 +365,22 @@ const styles = StyleSheet.create({
     fontSize: 16,
     letterSpacing: 1,
   },
+  meridiemRow: { flexDirection: "row", marginTop: 8, gap: 8 },
+  meridiemBtn: {
+    flex: 1,
+    paddingVertical: 9,
+    borderWidth: 1,
+    borderColor: "#d1d5db",
+    borderRadius: 10,
+    alignItems: "center",
+    backgroundColor: "#fff",
+  },
+  meridiemBtnActive: {
+    backgroundColor: "#111827",
+    borderColor: "#111827",
+  },
+  meridiemBtnText: { color: "#6b7280", fontWeight: "600" },
+  meridiemBtnTextActive: { color: "#fff", fontWeight: "600" },
 
   hint: { fontSize: 12, color: "#9ca3af", marginBottom: 8 },
   errorText: { color: "#ef4444", fontSize: 13, marginBottom: 8 },
