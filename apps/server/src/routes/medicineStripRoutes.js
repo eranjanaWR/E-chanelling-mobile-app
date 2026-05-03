@@ -1,6 +1,6 @@
 const express = require("express");
 const auth = require("../middleware/auth");
-const { createNote, getNotesByPatient } = require("../controllers/medicineStripController");
+const { createNote, getNotesByPatient, updateNote, deleteNote } = require("../controllers/medicineStripController");
 
 const router = express.Router();
 
@@ -9,5 +9,11 @@ router.post("/", auth, createNote);
 
 // GET  /medicine-strip/:patientId → get all notes for a patient
 router.get("/:patientId", auth, getNotesByPatient);
+
+// PATCH /medicine-strip/:id     → update an existing note
+router.patch("/:id", auth, updateNote);
+
+// DELETE /medicine-strip/:id    → delete a note
+router.delete("/:id", auth, deleteNote);
 
 module.exports = router;

@@ -25,6 +25,7 @@ const PatientNotesScreen = ({ route }) => {
   const [isSaving, setIsSaving] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState("");
+  const [editingNoteId, setEditingNoteId] = useState(null);
 
   // ── Fetch existing notes for this patient ─────────────────────────────────
   const fetchNotes = useCallback(async () => {
@@ -46,7 +47,7 @@ const PatientNotesScreen = ({ route }) => {
     else setIsLoading(false);
   }, [fetchNotes, patient._id]);
 
-  // ── Save note to database ──────────────────────────────────────────────────
+  // ── Save or Update note to database ─────────────────────────────────────────
   const handleSave = async () => {
     const trimmed = noteText.trim();
     if (!trimmed) {
@@ -56,16 +57,32 @@ const PatientNotesScreen = ({ route }) => {
 
     try {
       setIsSaving(true);
-      const response = await api.post("/medicine-strip", {
-        note: trimmed,
-        patientId: patient._id,
-        patientName: patient.name,
-      });
+      
+      if (editingNoteId) {
+        // Update existing note
+        const response = await api.patch(`/medicine-strip/${editingNoteId}`, {
+          note: trimmed,
+        });
+        const updated = response.data?.note;
+        if (updated) {
+          setNotes((prev) =>
+            prev.map((n) => (n._id === editingNoteId ? updated : n))
+          );
+        }
+        setEditingNoteId(null);
+      } else {
+        // Create new note
+        const response = await api.post("/medicine-strip", {
+          note: trimmed,
+          patientId: patient._id,
+          patientName: patient.name,
+        });
 
-      const saved = response.data?.note;
-      if (saved) {
-        // Prepend immediately — no need to re-fetch
-        setNotes((prev) => [saved, ...prev]);
+        const saved = response.data?.note;
+        if (saved) {
+          // Prepend immediately — no need to re-fetch
+          setNotes((prev) => [saved, ...prev]);
+        }
       }
       setNoteText(""); // clear input
     } catch (err) {
@@ -79,20 +96,75 @@ const PatientNotesScreen = ({ route }) => {
     }
   };
 
+  // ── Edit note ─────────────────────────────────────────────────────────────
+  const handleEdit = (note) => {
+    setEditingNoteId(note._id);
+    setNoteText(note.note);
+  };
+
+  // ── Delete note ───────────────────────────────────────────────────────────
+  const handleDelete = (noteId) => {
+    Alert.alert("Delete Note", "Are you sure you want to delete this note?", [
+      { text: "Cancel", style: "cancel" },
+      {
+        text: "Delete",
+        style: "destructive",
+        onPress: async () => {
+          try {
+            await api.delete(`/medicine-strip/${noteId}`);
+            setNotes((prev) => prev.filter((n) => n._id !== noteId));
+            if (editingNoteId === noteId) {
+              setEditingNoteId(null);
+              setNoteText("");
+            }
+          } catch (err) {
+            console.error("[PatientNotes] delete error:", err?.response?.data ?? err?.message);
+            Alert.alert(
+              "Delete failed",
+              err?.response?.data?.message ?? "Could not delete the note."
+            );
+          }
+        },
+      },
+    ]);
+  };
+
   // ── Render a single note card ─────────────────────────────────────────────
-  const renderNote = ({ item }) => (
-    <View style={styles.noteCard}>
-      <Text style={styles.noteText}>{item.note}</Text>
-      <View style={styles.noteFooter}>
-        <Text style={styles.noteMeta}>
-          Dr. {item.doctorName}
-        </Text>
-        <Text style={styles.noteDate}>
-          {new Date(item.createdAt).toLocaleString()}
-        </Text>
+  const renderNote = ({ item }) => {
+    return (
+      <View style={styles.noteCard}>
+        <Text style={styles.noteText}>{item.note}</Text>
+        <View style={styles.noteFooter}>
+          <Text style={styles.noteMeta}>Dr. {item.doctorName}</Text>
+          <Text style={styles.noteDate}>
+            {new Date(item.createdAt).toLocaleString()}
+          </Text>
+        </View>
+        <View style={styles.actionRow}>
+          <Pressable
+            onPress={() => handleEdit(item)}
+            style={({ pressed }) => [
+              styles.actionBtn,
+              styles.editBtn,
+              pressed && styles.actionBtnPressed,
+            ]}
+          >
+            <Text style={styles.editBtnText}>Edit</Text>
+          </Pressable>
+          <Pressable
+            onPress={() => handleDelete(item._id)}
+            style={({ pressed }) => [
+              styles.actionBtn,
+              styles.deleteBtn,
+              pressed && styles.actionBtnPressed,
+            ]}
+          >
+            <Text style={styles.deleteBtnText}>Delete</Text>
+          </Pressable>
+        </View>
       </View>
-    </View>
-  );
+    );
+  };
 
   return (
     <KeyboardAvoidingView
@@ -138,7 +210,9 @@ const PatientNotesScreen = ({ route }) => {
           {isSaving ? (
             <ActivityIndicator color="#ffffff" size="small" />
           ) : (
-            <Text style={styles.saveBtnText}>💾  Save Note</Text>
+            <Text style={styles.saveBtnText}>
+              {editingNoteId ? "🔄  Update Note" : "💾  Save Note"}
+            </Text>
           )}
         </Pressable>
       </View>
@@ -367,6 +441,43 @@ const styles = StyleSheet.create({
   noteDate: {
     fontSize: 11,
     color: "#9ca3af",
+  },
+  actionRow: {
+    flexDirection: "row",
+    justifyContent: "flex-end",
+    alignItems: "center",
+    marginTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: "#f3f4f6",
+    paddingTop: 10,
+    gap: 8,
+  },
+  actionBtn: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 6,
+    borderWidth: 1,
+  },
+  actionBtnPressed: {
+    opacity: 0.7,
+  },
+  editBtn: {
+    borderColor: "#bfdbfe",
+    backgroundColor: "#eff6ff",
+  },
+  editBtnText: {
+    fontSize: 12,
+    fontWeight: "600",
+    color: "#2563eb",
+  },
+  deleteBtn: {
+    borderColor: "#fecaca",
+    backgroundColor: "#fef2f2",
+  },
+  deleteBtnText: {
+    fontSize: 12,
+    fontWeight: "600",
+    color: "#dc2626",
   },
 
   // ── States
