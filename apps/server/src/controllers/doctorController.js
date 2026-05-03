@@ -43,4 +43,34 @@ const createDoctor = async (req, res) => {
   }
 };
 
-module.exports = { listDoctors, createDoctor };
+const updateDoctorAvailability = async (req, res) => {
+  try {
+    const { doctorId } = req.params;
+    const { status, date } = req.body;
+
+    const validStatuses = ["available", "unavailable"];
+    if (!validStatuses.includes(status)) {
+      return res.status(400).json({ message: "Status must be available or unavailable" });
+    }
+
+    if (!date || typeof date !== "string") {
+      return res.status(400).json({ message: "Availability date is required" });
+    }
+
+    const doctor = await Doctor.findByIdAndUpdate(
+      doctorId,
+      { $set: { availabilityStatus: status, availabilityDate: date.trim() } },
+      { new: true }
+    );
+
+    if (!doctor) {
+      return res.status(404).json({ message: "Doctor not found" });
+    }
+
+    return res.json({ doctor });
+  } catch (error) {
+    return res.status(500).json({ message: "Failed to update availability" });
+  }
+};
+
+module.exports = { listDoctors, createDoctor, updateDoctorAvailability };

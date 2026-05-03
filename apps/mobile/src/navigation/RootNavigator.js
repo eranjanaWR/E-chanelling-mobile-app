@@ -7,6 +7,13 @@ import LoginScreen from "../screens/LoginScreen";
 import SignupScreen from "../screens/SignupScreen";
 import RegistrationScreen from "../screens/RegistrationScreen";
 import DashboardScreen from "../screens/DashboardScreen";
+import AdminDashboardScreen from "../screens/AdminDashboardScreen";
+import AdminDoctorsScreen from "../screens/AdminDoctorsScreen";
+import AdminUsersScreen from "../screens/AdminUsersScreen";
+import AdminUserEditScreen from "../screens/AdminUserEditScreen";
+import AdminAppointmentsScreen from "../screens/AdminAppointmentsScreen";
+import AdminAppointmentEditScreen from "../screens/AdminAppointmentEditScreen";
+import AdminAppointmentCreateScreen from "../screens/AdminAppointmentCreateScreen";
 import DoctorSearchScreen from "../screens/DoctorSearchScreen";
 import AppointmentBookingScreen from "../screens/AppointmentBookingScreen";
 import PatientProfileScreen from "../screens/PatientProfileScreen";
@@ -60,8 +67,28 @@ const AppStack = () => (
   </Stack.Navigator>
 );
 
+const AdminStack = () => (
+  <Stack.Navigator>
+    <Stack.Screen name="AdminDashboard" component={AdminDashboardScreen} options={{ title: "Admin" }} />
+    <Stack.Screen name="AdminUsers" component={AdminUsersScreen} options={{ title: "Users" }} />
+    <Stack.Screen name="AdminUserEdit" component={AdminUserEditScreen} options={{ title: "Edit User" }} />
+    <Stack.Screen name="AdminDoctors" component={AdminDoctorsScreen} options={{ title: "Doctors" }} />
+    <Stack.Screen name="AdminAppointments" component={AdminAppointmentsScreen} options={{ title: "Appointments" }} />
+    <Stack.Screen
+      name="AdminAppointmentEdit"
+      component={AdminAppointmentEditScreen}
+      options={{ title: "Edit Appointment" }}
+    />
+    <Stack.Screen
+      name="AdminAppointmentCreate"
+      component={AdminAppointmentCreateScreen}
+      options={{ title: "Create Appointment" }}
+    />
+  </Stack.Navigator>
+);
+
 const RootNavigator = () => {
-  const { token, isLoading } = useAuth();
+  const { token, isLoading, user } = useAuth();
 
   if (isLoading) {
     return (
@@ -73,7 +100,7 @@ const RootNavigator = () => {
 
   return (
     <NavigationContainer>
-      {token ? <AppStack /> : <AuthStack />}
+      {token ? (user?.role === "admin" ? <AdminStack /> : <AppStack />) : <AuthStack />}
     </NavigationContainer>
   );
 };

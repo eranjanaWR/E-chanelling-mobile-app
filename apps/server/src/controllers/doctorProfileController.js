@@ -97,7 +97,8 @@ const addMedicalCenter = async (req, res) => {
       },
       { new: true }
     );
-    return res.status(201).json({ doctor });
+    const newCenter = doctor.medicalCenters[doctor.medicalCenters.length - 1];
+    return res.status(201).json({ doctor, center: newCenter });
   } catch (error) {
     console.error("addMedicalCenter error", error);
     return res.status(500).json({ message: "Failed to add medical center" });

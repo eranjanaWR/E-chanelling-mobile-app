@@ -72,6 +72,46 @@ const MedicalCenterFormScreen = ({ route, navigation }) => {
     }
   };
 
+  const handleSaveAndAddSlots = async () => {
+    const validationError = validate();
+    if (validationError) {
+      setError(validationError);
+      return;
+    }
+
+    setSaving(true);
+    setError("");
+
+    const payload = {
+      name: name.trim(),
+      location: location.trim(),
+      centerType,
+      phone: phone.trim(),
+      consultationFee: Number(fee) || 0,
+    };
+
+    try {
+      if (isEdit) {
+        await api.put(`/doctors/medical-centers/${center._id}`, payload);
+        navigation.navigate("ManageTimeSlots", { centerId: center._id, centerName: name.trim() });
+      } else {
+        const res = await api.post("/doctors/medical-centers", payload);
+        const newCenter = res.data.center;
+        if (newCenter?._id) {
+          navigation.navigate("ManageTimeSlots", {
+            centerId: newCenter._id,
+            centerName: newCenter.name,
+          });
+        } else {
+          navigation.goBack();
+        }
+      }
+    } catch (err) {
+      setError(err?.response?.data?.message || "Save failed");
+      setSaving(false);
+    }
+  };
+
   return (
     <KeyboardAvoidingView
       style={{ flex: 1 }}
@@ -141,6 +181,20 @@ const MedicalCenterFormScreen = ({ route, navigation }) => {
           </Text>
         </Pressable>
 
+        {isEdit ? (
+          <Pressable
+            style={[styles.btn, styles.secondaryBtn]}
+            onPress={() =>
+              navigation.navigate("ManageTimeSlots", {
+                centerId: center._id,
+                centerName: center.name,
+              })
+            }
+          >
+            <Text style={styles.secondaryBtnText}>Manage Time Slots</Text>
+          </Pressable>
+        ) : null}
+
         <Pressable style={styles.cancelBtn} onPress={() => navigation.goBack()}>
           <Text style={styles.cancelBtnText}>Cancel</Text>
         </Pressable>
@@ -187,8 +241,15 @@ const styles = StyleSheet.create({
     marginTop: 20,
     alignItems: "center",
   },
+  secondaryBtn: {
+    backgroundColor: "#fff",
+    borderWidth: 1,
+    borderColor: "#111827",
+    marginTop: 12,
+  },
   btnDisabled: { opacity: 0.5 },
   btnText: { color: "#fff", fontWeight: "600", fontSize: 15 },
+  secondaryBtnText: { color: "#111827", fontWeight: "600", fontSize: 15 },
 
   cancelBtn: { paddingVertical: 13, alignItems: "center", marginTop: 8 },
   cancelBtnText: { color: "#6b7280", fontWeight: "600" },

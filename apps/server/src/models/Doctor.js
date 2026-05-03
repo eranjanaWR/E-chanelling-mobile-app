@@ -44,6 +44,12 @@ const doctorSchema = new mongoose.Schema(
     qualification: { type: String, default: "", trim: true },
     photoUrl: { type: String, default: "", trim: true },
     experience: { type: Number, default: 0 },
+    availabilityStatus: {
+      type: String,
+      enum: ["available", "unavailable"],
+      default: "available",
+    },
+    availabilityDate: { type: String, default: "" },
     medicalCenters: [medicalCenterSchema],
     // Legacy fields
     availability: [availabilitySchema],
