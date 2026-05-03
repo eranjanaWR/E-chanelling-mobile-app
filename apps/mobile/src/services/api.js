@@ -5,7 +5,7 @@ import { Platform } from "react-native";
 
 // Your Mac's local WiFi IP — run `ipconfig getifaddr en0` in Terminal to get it.
 // Update this whenever your network changes.
-const DEV_SERVER_IP = "192.168.23.246";
+const DEV_SERVER_IP = "192.168.1.4";
 
 const getBaseUrl = () => {
   // Expo Go injects hostUri at runtime — try both SDK 50+ and legacy paths

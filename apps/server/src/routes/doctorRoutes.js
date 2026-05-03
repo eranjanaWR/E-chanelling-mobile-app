@@ -1,7 +1,7 @@
 const express = require("express");
 const router = express.Router();
 const auth = require("../middleware/auth");
-const { listDoctors, createDoctor } = require("../controllers/doctorController");
+const { listDoctors, createDoctor, updateDoctorAvailability } = require("../controllers/doctorController");
 const {
   getProfile,
   updateProfile,
@@ -12,6 +12,13 @@ const {
   deleteTimeSlot,
   getPublicProfile,
 } = require("../controllers/doctorProfileController");
+
+const requireAdmin = (req, res, next) => {
+  if (req.user?.role !== "admin") {
+    return res.status(403).json({ message: "Admin access required" });
+  }
+  return next();
+};
 
 // Public — order matters: static paths before params
 router.get("/", listDoctors);
@@ -29,6 +36,9 @@ router.delete("/medical-centers/:centerId", auth, deleteMedicalCenter);
 // Time slots within a center
 router.post("/medical-centers/:centerId/time-slots", auth, addTimeSlot);
 router.delete("/medical-centers/:centerId/time-slots/:slotId", auth, deleteTimeSlot);
+
+// Admin availability controls
+router.put("/:doctorId/availability", auth, requireAdmin, updateDoctorAvailability);
 
 // Legacy create endpoint
 router.post("/", createDoctor);
