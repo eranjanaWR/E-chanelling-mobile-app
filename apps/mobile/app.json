@@ -26,7 +26,7 @@
       "favicon": "./assets/favicon.png"
     },
     "extra": {
-      "apiBaseUrl": "http://localhost:4000"
+      "apiBaseUrl": "https://e-chanelling-mobile-app-production.up.railway.app"
     },
     "plugins": [
       "expo-secure-store"
