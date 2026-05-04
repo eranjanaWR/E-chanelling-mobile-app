@@ -20,6 +20,7 @@ import PatientProfileScreen from "../screens/PatientProfileScreen";
 import DoctorProfileScreen from "../screens/DoctorProfileScreen";
 import MedicalCenterFormScreen from "../screens/MedicalCenterFormScreen";
 import ManageTimeSlotsScreen from "../screens/ManageTimeSlotsScreen";
+import MyAppointmentsScreen from "../screens/MyAppointmentsScreen";
 import PatientListScreen from "../screens/PatientListScreen";
 import PatientNotesScreen from "../screens/PatientNotesScreen";
 import ViewMedicineStripScreen from "../screens/ViewMedicineStripScreen";
@@ -66,6 +67,11 @@ const AppStack = () => (
       name="ManageTimeSlots"
       component={ManageTimeSlotsScreen}
       options={{ title: "Time Slots" }}
+    />
+    <Stack.Screen
+      name="MyAppointments"
+      component={MyAppointmentsScreen}
+      options={{ title: "My Appointments" }}
     />
     <Stack.Screen
       name="PatientList"
