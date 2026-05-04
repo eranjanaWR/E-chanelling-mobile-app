@@ -7,6 +7,7 @@ const {
 	updateAppointment,
 	deleteAppointment,
 	getQueueNumberForDate,
+	completeAppointment,
 } = require("../controllers/appointmentController");
 
 const router = express.Router();
@@ -22,6 +23,7 @@ router.get("/", auth, listAppointments);
 router.get("/next-queue", auth, getQueueNumberForDate);
 router.post("/", auth, createAppointment);
 router.post("/admin", auth, requireAdmin, createAppointmentAdmin);
+router.patch("/:appointmentId/complete", auth, completeAppointment);
 router.put("/:appointmentId", auth, requireAdmin, updateAppointment);
 router.delete("/:appointmentId", auth, requireAdmin, deleteAppointment);
 

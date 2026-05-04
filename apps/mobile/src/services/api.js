@@ -8,6 +8,11 @@ import { Platform } from "react-native";
 const DEV_SERVER_IP = "192.168.1.4";
 
 const getBaseUrl = () => {
+  const configuredBaseUrl = Constants.expoConfig?.extra?.apiBaseUrl;
+  if (configuredBaseUrl) {
+    return configuredBaseUrl;
+  }
+
   // Expo Go injects hostUri at runtime — try both SDK 50+ and legacy paths
   const hostUri =
     Constants.expoConfig?.hostUri ||
