@@ -1,5 +1,6 @@
 const Appointment = require("../models/Appointment");
 const Doctor = require("../models/Doctor");
+const Review = require("../models/Review");
 const User = require("../models/User");
 const mongoose = require("mongoose");
 
@@ -55,7 +56,28 @@ const listAppointments = async (req, res) => {
       .populate("patient", "name email")
       .populate("doctor", "name specialty");
 
-    return res.json({ appointments });
+    const appointmentIds = appointments.map((appointment) => appointment._id);
+    const reviews = appointmentIds.length
+      ? await Review.find({ appointment: { $in: appointmentIds } })
+          .populate("patient", "name email")
+          .populate("doctor", "name specialty")
+      : [];
+
+    const reviewMap = new Map(
+      reviews.map((review) => [String(review.appointment), review])
+    );
+
+    const payload = appointments.map((appointment) => {
+      const review = reviewMap.get(String(appointment._id));
+      if (!review) {
+        return appointment;
+      }
+      const data = appointment.toObject();
+      data.review = review;
+      return data;
+    });
+
+    return res.json({ appointments: payload });
   } catch (error) {
     return res.status(500).json({ message: "Failed to fetch appointments" });
   }

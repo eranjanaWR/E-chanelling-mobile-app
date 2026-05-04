@@ -9,6 +9,7 @@ const profileRoutes = require("./routes/profileRoutes");
 const userRoutes = require("./routes/userRoutes");
 const patientRoutes = require("./routes/patientRoutes");
 const medicineStripRoutes = require("./routes/medicineStripRoutes");
+const reviewRoutes = require("./routes/reviewRoutes");
 
 const app = express();
 const port = process.env.PORT || 4000;
@@ -35,6 +36,7 @@ app.use("/profile", profileRoutes);
 app.use("/users", userRoutes);
 app.use("/patients", patientRoutes);
 app.use("/medicine-strip", medicineStripRoutes);
+app.use("/reviews", reviewRoutes);
 
 const startServer = () =>
   app.listen(port, () => {

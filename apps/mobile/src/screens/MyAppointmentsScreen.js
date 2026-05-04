@@ -1,5 +1,13 @@
 import React, { useCallback, useState } from "react";
-import { ActivityIndicator, FlatList, Pressable, StyleSheet, Text, View } from "react-native";
+import {
+  ActivityIndicator,
+  FlatList,
+  Pressable,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+} from "react-native";
 import { useFocusEffect } from "@react-navigation/native";
 import api from "../services/api";
 import { useAuth } from "../context/AuthContext";
@@ -17,6 +25,10 @@ const MyAppointmentsScreen = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [updatingId, setUpdatingId] = useState(null);
+  const [activeReviewId, setActiveReviewId] = useState(null);
+  const [reviewDrafts, setReviewDrafts] = useState({});
+  const [reviewSavingId, setReviewSavingId] = useState(null);
+  const [reviewDeletingId, setReviewDeletingId] = useState(null);
 
   const loadAppointments = useCallback(async () => {
     setLoading(true);
@@ -50,6 +62,81 @@ const MyAppointmentsScreen = () => {
     }
   };
 
+  const startReview = (appointment) => {
+    const existing = appointment.review;
+    setReviewDrafts((prev) => ({
+      ...prev,
+      [appointment._id]: {
+        rating: existing?.rating ? String(existing.rating) : "",
+        comment: existing?.comment || "",
+      },
+    }));
+    setActiveReviewId(appointment._id);
+  };
+
+  const updateDraft = (appointmentId, key, value) => {
+    setReviewDrafts((prev) => ({
+      ...prev,
+      [appointmentId]: {
+        ...(prev[appointmentId] || {}),
+        [key]: value,
+      },
+    }));
+  };
+
+  const handleSaveReview = async (appointment) => {
+    const draft = reviewDrafts[appointment._id] || {};
+    const ratingValue = Number(draft.rating);
+    const commentValue = String(draft.comment || "").trim();
+
+    if (!Number.isFinite(ratingValue) || ratingValue < 1 || ratingValue > 5) {
+      setError("Rating must be between 1 and 5");
+      return;
+    }
+
+    if (!commentValue) {
+      setError("Comment is required");
+      return;
+    }
+
+    setReviewSavingId(appointment._id);
+    setError("");
+    try {
+      if (appointment.review?._id) {
+        await api.put(`/reviews/${appointment.review._id}`, {
+          rating: ratingValue,
+          comment: commentValue,
+        });
+      } else {
+        await api.post("/reviews", {
+          appointmentId: appointment._id,
+          rating: ratingValue,
+          comment: commentValue,
+        });
+      }
+      setActiveReviewId(null);
+      await loadAppointments();
+    } catch (err) {
+      setError(err?.response?.data?.message || "Failed to save review");
+    } finally {
+      setReviewSavingId(null);
+    }
+  };
+
+  const handleDeleteReview = async (reviewId) => {
+    setReviewDeletingId(reviewId);
+    setError("");
+    try {
+      await api.delete(`/reviews/${reviewId}`);
+      setActiveReviewId(null);
+      await loadAppointments();
+    } catch (err) {
+      setError(err?.response?.data?.message || "Failed to delete review");
+    } finally {
+      setReviewDeletingId(null);
+    }
+  };
+
   if (loading) {
     return (
       <View style={styles.center}>
@@ -68,6 +155,7 @@ const MyAppointmentsScreen = () => {
         renderItem={({ item }) => {
           const dateLabel = formatDate(item.appointmentDate);
           const isDoctor = user?.role === "doctor";
+          const isPatient = user?.role === "patient";
           const title = isDoctor
             ? item.patient?.name || "Patient"
             : item.doctor?.name || "Doctor";
@@ -77,6 +165,14 @@ const MyAppointmentsScreen = () => {
 
           const isCompleted = item.status === "completed";
           const canComplete = isDoctor && !isCompleted && item.status !== "cancelled";
+          const canReview = isPatient && isCompleted;
+          const draft = reviewDrafts[item._id] || {
+            rating: item.review?.rating ? String(item.review.rating) : "",
+            comment: item.review?.comment || "",
+          };
+          const isEditingReview = activeReviewId === item._id;
+          const isSavingReview = reviewSavingId === item._id;
+          const isDeletingReview = reviewDeletingId === item.review?._id;
 
           return (
             <View style={styles.card}>
@@ -95,6 +191,81 @@ const MyAppointmentsScreen = () => {
                     {updatingId === item._id ? "Completing..." : "Mark Completed"}
                   </Text>
                 </Pressable>
+              ) : null}
+              {canReview ? (
+                <View style={styles.reviewSection}>
+                  <Text style={styles.reviewTitle}>Review</Text>
+                  {item.review && !isEditingReview ? (
+                    <View>
+                      <Text style={styles.reviewMeta}>Rating: {item.review.rating}/5</Text>
+                      <Text style={styles.reviewMeta}>Comment: {item.review.comment}</Text>
+                      <View style={styles.reviewActions}>
+                        <Pressable
+                          style={[styles.reviewButton, styles.reviewEditButton]}
+                          onPress={() => startReview(item)}
+                        >
+                          <Text style={styles.reviewButtonText}>Edit</Text>
+                        </Pressable>
+                        <Pressable
+                          style={[
+                            styles.reviewButton,
+                            styles.reviewDeleteButton,
+                            isDeletingReview && styles.btnDisabled,
+                          ]}
+                          onPress={() => handleDeleteReview(item.review._id)}
+                          disabled={isDeletingReview}
+                        >
+                          <Text style={styles.reviewButtonText}>
+                            {isDeletingReview ? "Deleting..." : "Delete"}
+                          </Text>
+                        </Pressable>
+                      </View>
+                    </View>
+                  ) : null}
+                  {!item.review && !isEditingReview ? (
+                    <Pressable
+                      style={[styles.reviewButton, styles.reviewAddButton]}
+                      onPress={() => startReview(item)}
+                    >
+                      <Text style={styles.reviewButtonText}>Add Review</Text>
+                    </Pressable>
+                  ) : null}
+                  {isEditingReview ? (
+                    <View style={styles.reviewForm}>
+                      <TextInput
+                        style={styles.input}
+                        keyboardType="numeric"
+                        placeholder="Rating (1-5)"
+                        value={draft.rating}
+                        onChangeText={(value) => updateDraft(item._id, "rating", value)}
+                      />
+                      <TextInput
+                        style={[styles.input, styles.textArea]}
+                        placeholder="Comment"
+                        value={draft.comment}
+                        onChangeText={(value) => updateDraft(item._id, "comment", value)}
+                        multiline
+                      />
+                      <View style={styles.reviewActions}>
+                        <Pressable
+                          style={[styles.reviewButton, styles.reviewSaveButton]}
+                          onPress={() => handleSaveReview(item)}
+                          disabled={isSavingReview}
+                        >
+                          <Text style={styles.reviewButtonText}>
+                            {isSavingReview ? "Saving..." : "Save"}
+                          </Text>
+                        </Pressable>
+                        <Pressable
+                          style={[styles.reviewButton, styles.reviewCancelButton]}
+                          onPress={() => setActiveReviewId(null)}
+                        >
+                          <Text style={styles.reviewButtonText}>Cancel</Text>
+                        </Pressable>
+                      </View>
+                    </View>
+                  ) : null}
+                </View>
               ) : null}
             </View>
           );
@@ -159,6 +330,69 @@ const styles = StyleSheet.create({
   },
   btnDisabled: {
     opacity: 0.6,
+  },
+  reviewSection: {
+    marginTop: 14,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: "#e5e7eb",
+  },
+  reviewTitle: {
+    fontSize: 14,
+    fontWeight: "600",
+    marginBottom: 8,
+  },
+  reviewMeta: {
+    fontSize: 12,
+    color: "#374151",
+    marginBottom: 4,
+  },
+  reviewActions: {
+    flexDirection: "row",
+    gap: 8,
+    marginTop: 10,
+  },
+  reviewButton: {
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+    backgroundColor: "#111827",
+  },
+  reviewButtonText: {
+    color: "#ffffff",
+    fontSize: 12,
+    fontWeight: "600",
+  },
+  reviewAddButton: {
+    alignSelf: "flex-start",
+  },
+  reviewEditButton: {
+    backgroundColor: "#1f2937",
+  },
+  reviewDeleteButton: {
+    backgroundColor: "#b91c1c",
+  },
+  reviewSaveButton: {
+    backgroundColor: "#0f172a",
+  },
+  reviewCancelButton: {
+    backgroundColor: "#6b7280",
+  },
+  reviewForm: {
+    marginTop: 10,
+  },
+  input: {
+    borderWidth: 1,
+    borderColor: "#d1d5db",
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    fontSize: 12,
+    marginBottom: 8,
+  },
+  textArea: {
+    minHeight: 72,
+    textAlignVertical: "top",
   },
 });
 
