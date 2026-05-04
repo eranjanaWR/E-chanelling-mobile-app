@@ -56,7 +56,7 @@ Update the API base URL in apps/mobile/app.json:
 
 ```json
 "extra": {
-  "apiBaseUrl": "http://localhost:4000"
+  "apiBaseUrl": "https://e-chanelling-mobile-app-production.up.railway.app"
 }
 ```
 
