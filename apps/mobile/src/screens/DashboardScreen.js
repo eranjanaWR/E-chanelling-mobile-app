@@ -26,6 +26,13 @@ const DashboardScreen = ({ navigation }) => {
         <Text style={styles.secondaryButtonText}>Manage Profile</Text>
       </Pressable>
 
+      <Pressable
+        style={styles.secondaryButton}
+        onPress={() => navigation.navigate("MyAppointments")}
+      >
+        <Text style={styles.secondaryButtonText}>My Appointments</Text>
+      </Pressable>
+
       {user?.role === "patient" && (
         <Pressable style={styles.secondaryButton} onPress={() => navigation.navigate("ViewMedicineStrip")}>
           <Text style={styles.secondaryButtonText}>View Medicine Strip</Text>

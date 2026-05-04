@@ -137,7 +137,7 @@ const createAppointmentAdmin = async (req, res) => {
       return res.status(404).json({ message: "Doctor not found" });
     }
 
-    const validStatuses = ["pending", "confirmed", "cancelled"];
+    const validStatuses = ["pending", "confirmed", "cancelled", "completed"];
     const safeStatus = validStatuses.includes(status) ? status : "pending";
 
     let assignedQueueNumber;
@@ -186,7 +186,7 @@ const updateAppointment = async (req, res) => {
     }
 
     if (status !== undefined) {
-      const validStatuses = ["pending", "confirmed", "cancelled"];
+      const validStatuses = ["pending", "confirmed", "cancelled", "completed"];
       if (!validStatuses.includes(status)) {
         return res.status(400).json({ message: "Invalid status" });
       }
@@ -215,6 +215,43 @@ const updateAppointment = async (req, res) => {
     return res.json({ appointment });
   } catch (error) {
     return res.status(500).json({ message: "Failed to update appointment" });
+  }
+};
+
+const completeAppointment = async (req, res) => {
+  try {
+    if (req.user?.role !== "doctor") {
+      return res.status(403).json({ message: "Doctor access required" });
+    }
+
+    const { appointmentId } = req.params;
+    if (!mongoose.Types.ObjectId.isValid(appointmentId)) {
+      return res.status(400).json({ message: "Invalid appointmentId" });
+    }
+
+    const doctor = await Doctor.findOne({ user: req.user._id });
+    if (!doctor) {
+      return res.status(404).json({ message: "Doctor profile not found" });
+    }
+
+    const appointment = await Appointment.findOneAndUpdate(
+      { _id: appointmentId, doctor: doctor._id },
+      { $set: { status: "completed" } },
+      { new: true }
+    )
+      .populate("patient", "name email")
+      .populate("doctor", "name specialty");
+
+    if (!appointment) {
+      return res.status(404).json({ message: "Appointment not found" });
+    }
+
+    return res.json({ appointment });
+  } catch (error) {
+    console.error("completeAppointment error", error);
+    return res.status(500).json({
+      message: error?.message || "Failed to complete appointment",
+    });
   }
 };
 
@@ -263,4 +300,5 @@ module.exports = {
   updateAppointment,
   deleteAppointment,
   getQueueNumberForDate,
+  completeAppointment,
 };

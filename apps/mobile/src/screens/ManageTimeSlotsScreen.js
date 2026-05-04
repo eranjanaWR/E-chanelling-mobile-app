@@ -1,4 +1,4 @@
-import React, { useCallback, useLayoutEffect, useState } from "react";
+import React, { useCallback, useLayoutEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -31,6 +31,11 @@ const DAY_SHORT = {
   Friday: "Fri",
   Saturday: "Sat",
   Sunday: "Sun",
+};
+const WORKING_HOURS = {
+  start: { time: "09:00", meridiem: "AM" },
+  end: { time: "08:00", meridiem: "PM" },
+  intervalMinutes: 15,
 };
 
 const ManageTimeSlotsScreen = ({ route, navigation }) => {
@@ -80,6 +85,55 @@ const ManageTimeSlotsScreen = ({ route, navigation }) => {
     const paddedHour = hour.toString().padStart(2, "0");
     return `${paddedHour}:${minute}`;
   };
+
+  const timeToMinutes = (time12, meridiem) => {
+    const [hourStr, minuteStr] = time12.split(":");
+    const hour = Number(hourStr);
+    const minute = Number(minuteStr);
+    if (!hour || Number.isNaN(minute)) return null;
+    let hour24 = hour % 12;
+    if (meridiem === "PM") hour24 += 12;
+    return hour24 * 60 + minute;
+  };
+
+  const minutesToTime12 = (totalMinutes) => {
+    const minutesInDay = ((totalMinutes % 1440) + 1440) % 1440;
+    const hour24 = Math.floor(minutesInDay / 60);
+    const minute = minutesInDay % 60;
+    const meridiem = hour24 >= 12 ? "PM" : "AM";
+    const hour12 = ((hour24 + 11) % 12) + 1;
+    const hourLabel = hour12.toString().padStart(2, "0");
+    const minuteLabel = minute.toString().padStart(2, "0");
+    return { time: `${hourLabel}:${minuteLabel}`, meridiem };
+  };
+
+  const buildTimeOptions = () => {
+    const startMinutes = timeToMinutes(WORKING_HOURS.start.time, WORKING_HOURS.start.meridiem);
+    const endMinutes = timeToMinutes(WORKING_HOURS.end.time, WORKING_HOURS.end.meridiem);
+    if (startMinutes === null || endMinutes === null) return [];
+
+    const options = [];
+    for (
+      let current = startMinutes;
+      current <= endMinutes;
+      current += WORKING_HOURS.intervalMinutes
+    ) {
+      options.push(minutesToTime12(current));
+    }
+    return options;
+  };
+
+  const allTimeOptions = useMemo(() => buildTimeOptions(), []);
+  const startOptions = useMemo(() => allTimeOptions.slice(0, -1), [allTimeOptions]);
+
+  const endOptions = useMemo(() => {
+    if (!startTime || !startMeridiem) return allTimeOptions.slice(1);
+    const startMinutes = timeToMinutes(startTime, startMeridiem);
+    if (startMinutes === null) return allTimeOptions.slice(1);
+    return allTimeOptions.filter(
+      (option) => timeToMinutes(option.time, option.meridiem) > startMinutes
+    );
+  }, [allTimeOptions, startTime, startMeridiem]);
 
   const handleAdd = async () => {
     if (!startTime.trim() || !endTime.trim()) {
@@ -221,6 +275,32 @@ const ManageTimeSlotsScreen = ({ route, navigation }) => {
               maxLength={5}
               keyboardType="numbers-and-punctuation"
             />
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              style={styles.suggestionRow}
+            >
+              {startOptions.map((option) => {
+                const isActive =
+                  startTime === option.time && startMeridiem === option.meridiem;
+                return (
+                  <Pressable
+                    key={`start-${option.time}-${option.meridiem}`}
+                    style={[styles.suggestionChip, isActive && styles.suggestionChipActive]}
+                    onPress={() => {
+                      setStartTime(option.time);
+                      setStartMeridiem(option.meridiem);
+                    }}
+                  >
+                    <Text
+                      style={isActive ? styles.suggestionChipTextActive : styles.suggestionChipText}
+                    >
+                      {option.time} {option.meridiem}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </ScrollView>
             <View style={styles.meridiemRow}>
               {['AM', 'PM'].map((value) => (
                 <Pressable
@@ -254,6 +334,31 @@ const ManageTimeSlotsScreen = ({ route, navigation }) => {
               maxLength={5}
               keyboardType="numbers-and-punctuation"
             />
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              style={styles.suggestionRow}
+            >
+              {endOptions.map((option) => {
+                const isActive = endTime === option.time && endMeridiem === option.meridiem;
+                return (
+                  <Pressable
+                    key={`end-${option.time}-${option.meridiem}`}
+                    style={[styles.suggestionChip, isActive && styles.suggestionChipActive]}
+                    onPress={() => {
+                      setEndTime(option.time);
+                      setEndMeridiem(option.meridiem);
+                    }}
+                  >
+                    <Text
+                      style={isActive ? styles.suggestionChipTextActive : styles.suggestionChipText}
+                    >
+                      {option.time} {option.meridiem}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </ScrollView>
             <View style={styles.meridiemRow}>
               {['AM', 'PM'].map((value) => (
                 <Pressable
@@ -365,6 +470,22 @@ const styles = StyleSheet.create({
     fontSize: 16,
     letterSpacing: 1,
   },
+  suggestionRow: { marginTop: 8 },
+  suggestionChip: {
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: "#e5e7eb",
+    backgroundColor: "#fff",
+    marginRight: 8,
+  },
+  suggestionChipActive: {
+    backgroundColor: "#111827",
+    borderColor: "#111827",
+  },
+  suggestionChipText: { color: "#6b7280", fontWeight: "600", fontSize: 12 },
+  suggestionChipTextActive: { color: "#fff", fontWeight: "600", fontSize: 12 },
   meridiemRow: { flexDirection: "row", marginTop: 8, gap: 8 },
   meridiemBtn: {
     flex: 1,
