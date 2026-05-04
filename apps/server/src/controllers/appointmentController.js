@@ -247,8 +247,14 @@ const completeAppointment = async (req, res) => {
     }
 
     const { appointmentId } = req.params;
+    const { amount } = req.body;
     if (!mongoose.Types.ObjectId.isValid(appointmentId)) {
       return res.status(400).json({ message: "Invalid appointmentId" });
+    }
+
+    const parsedAmount = Number(amount);
+    if (!Number.isFinite(parsedAmount) || parsedAmount <= 0) {
+      return res.status(400).json({ message: "Amount must be greater than 0" });
     }
 
     const doctor = await Doctor.findOne({ user: req.user._id });
@@ -258,7 +264,7 @@ const completeAppointment = async (req, res) => {
 
     const appointment = await Appointment.findOneAndUpdate(
       { _id: appointmentId, doctor: doctor._id },
-      { $set: { status: "completed" } },
+      { $set: { status: "completed", amount: parsedAmount } },
       { new: true }
     )
       .populate("patient", "name email")
