@@ -24,6 +24,7 @@ import MyAppointmentsScreen from "../screens/MyAppointmentsScreen";
 import PatientListScreen from "../screens/PatientListScreen";
 import PatientNotesScreen from "../screens/PatientNotesScreen";
 import ViewMedicineStripScreen from "../screens/ViewMedicineStripScreen";
+import PaymentScreen from "../screens/PaymentScreen";
 
 const Stack = createNativeStackNavigator();
 
@@ -87,6 +88,11 @@ const AppStack = () => (
       name="ViewMedicineStrip"
       component={ViewMedicineStripScreen}
       options={{ title: "My Medicine Strip" }}
+    />
+    <Stack.Screen
+      name="Payment"
+      component={PaymentScreen}
+      options={{ title: "Payment" }}
     />
   </Stack.Navigator>
 );
