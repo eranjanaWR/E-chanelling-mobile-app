@@ -74,6 +74,9 @@ const AppointmentBookingScreen = ({ route, navigation }) => {
   const [loadingQueueNumber, setLoadingQueueNumber] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+  const [reviews, setReviews] = useState([]);
+  const [reviewSummary, setReviewSummary] = useState({ averageRating: 0, totalReviews: 0 });
+  const [loadingReviews, setLoadingReviews] = useState(false);
 
   const availableSlots = useMemo(() => {
     if (!doctor) return [];
@@ -130,6 +133,27 @@ const AppointmentBookingScreen = ({ route, navigation }) => {
 
     fetchQueue();
   }, [appointmentDate, doctor]);
+
+  useEffect(() => {
+    const fetchReviews = async () => {
+      if (!doctor?._id) return;
+      setLoadingReviews(true);
+      try {
+        const res = await api.get(`/reviews/doctor/${doctor._id}`, {
+          params: { limit: 5 },
+        });
+        setReviews(res.data?.reviews || []);
+        setReviewSummary(res.data?.summary || { averageRating: 0, totalReviews: 0 });
+      } catch (err) {
+        setReviews([]);
+        setReviewSummary({ averageRating: 0, totalReviews: 0 });
+      } finally {
+        setLoadingReviews(false);
+      }
+    };
+
+    fetchReviews();
+  }, [doctor]);
 
   const dateOptions = useMemo(() => getUpcomingDatesForDay(selectedDay), [selectedDay]);
 
@@ -289,6 +313,28 @@ const AppointmentBookingScreen = ({ route, navigation }) => {
       <Pressable style={styles.primaryButton} onPress={handleBook}>
         <Text style={styles.primaryButtonText}>Confirm Booking</Text>
       </Pressable>
+
+      <View style={styles.reviewSection}>
+        <Text style={styles.sectionTitle}>Past Reviews</Text>
+        {loadingReviews ? (
+          <Text style={styles.metaText}>Loading reviews...</Text>
+        ) : reviewSummary.totalReviews ? (
+          <Text style={styles.reviewSummary}>
+            {reviewSummary.averageRating}/5 based on {reviewSummary.totalReviews} reviews
+          </Text>
+        ) : (
+          <Text style={styles.metaText}>No reviews yet.</Text>
+        )}
+        {reviews.map((review) => (
+          <View style={styles.reviewCard} key={review._id}>
+            <Text style={styles.reviewRating}>Rating: {review.rating}/5</Text>
+            <Text style={styles.reviewComment}>{review.comment}</Text>
+            <Text style={styles.reviewAuthor}>
+              {review.patient?.name || "Patient"}
+            </Text>
+          </View>
+        ))}
+      </View>
     </View>
   );
 };
@@ -404,6 +450,38 @@ const styles = StyleSheet.create({
   success: {
     color: "#10b981",
     marginBottom: 8,
+  },
+  reviewSection: {
+    marginTop: 16,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: "#e5e7eb",
+  },
+  reviewSummary: {
+    color: "#111827",
+    marginBottom: 8,
+    fontWeight: "600",
+  },
+  reviewCard: {
+    backgroundColor: "#f8fafc",
+    borderWidth: 1,
+    borderColor: "#e5e7eb",
+    borderRadius: 10,
+    padding: 12,
+    marginBottom: 10,
+  },
+  reviewRating: {
+    fontWeight: "700",
+    color: "#111827",
+    marginBottom: 4,
+  },
+  reviewComment: {
+    color: "#374151",
+    marginBottom: 6,
+  },
+  reviewAuthor: {
+    color: "#6b7280",
+    fontSize: 12,
   },
 });
 

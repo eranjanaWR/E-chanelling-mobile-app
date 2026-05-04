@@ -31,6 +31,79 @@ const listReviews = async (req, res) => {
   }
 };
 
+const listReviewsByDoctor = async (req, res) => {
+  try {
+    const { doctorId } = req.params;
+    const limit = Number(req.query.limit) || 5;
+
+    if (!mongoose.Types.ObjectId.isValid(doctorId)) {
+      return res.status(400).json({ message: "Invalid doctorId" });
+    }
+
+    const normalizedLimit = Math.max(1, Math.min(limit, 50));
+    const doctorObjectId = new mongoose.Types.ObjectId(doctorId);
+
+    const findReviews = async (resolvedDoctorId) =>
+      Review.find({ doctor: resolvedDoctorId })
+        .sort({ createdAt: -1 })
+        .limit(normalizedLimit)
+        .populate("patient", "name email")
+        .populate("doctor", "name specialty");
+
+    let reviews = await findReviews(doctorObjectId);
+    let summary = { averageRating: 0, totalReviews: 0 };
+
+    if (!reviews.length) {
+      const doctor = await Doctor.findOne({ user: doctorObjectId });
+      if (doctor) {
+        reviews = await findReviews(doctor._id);
+        if (reviews.length) {
+          const stats = await Review.aggregate([
+            { $match: { doctor: doctor._id } },
+            {
+              $group: {
+                _id: "$doctor",
+                averageRating: { $avg: "$rating" },
+                totalReviews: { $sum: 1 },
+              },
+            },
+          ]);
+          if (stats[0]) {
+            summary = {
+              averageRating: Number(stats[0].averageRating.toFixed(1)),
+              totalReviews: stats[0].totalReviews,
+            };
+          }
+        }
+      }
+    }
+
+    if (reviews.length && summary.totalReviews === 0) {
+      const stats = await Review.aggregate([
+        { $match: { doctor: doctorObjectId } },
+        {
+          $group: {
+            _id: "$doctor",
+            averageRating: { $avg: "$rating" },
+            totalReviews: { $sum: 1 },
+          },
+        },
+      ]);
+      if (stats[0]) {
+        summary = {
+          averageRating: Number(stats[0].averageRating.toFixed(1)),
+          totalReviews: stats[0].totalReviews,
+        };
+      }
+    }
+
+    return res.json({ reviews, summary });
+  } catch (error) {
+    console.error("listReviewsByDoctor error", error);
+    return res.status(500).json({ message: "Failed to fetch doctor reviews" });
+  }
+};
+
 const createReview = async (req, res) => {
   try {
     if (req.user?.role !== "patient") {
@@ -187,6 +260,7 @@ const deleteReview = async (req, res) => {
 
 module.exports = {
   listReviews,
+  listReviewsByDoctor,
   createReview,
   updateReview,
   deleteReview,
