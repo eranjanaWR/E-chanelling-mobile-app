@@ -25,6 +25,7 @@ const MyAppointmentsScreen = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [updatingId, setUpdatingId] = useState(null);
+  const [completionAmounts, setCompletionAmounts] = useState({});
   const [activeReviewId, setActiveReviewId] = useState(null);
   const [reviewDrafts, setReviewDrafts] = useState({});
   const [reviewSavingId, setReviewSavingId] = useState(null);
@@ -50,16 +51,28 @@ const MyAppointmentsScreen = () => {
   );
 
   const handleComplete = async (appointmentId) => {
+    const amountValue = completionAmounts[appointmentId];
+    const parsedAmount = Number(amountValue);
+    if (!Number.isFinite(parsedAmount) || parsedAmount <= 0) {
+      setError("Amount must be greater than 0");
+      return;
+    }
     setUpdatingId(appointmentId);
     setError("");
     try {
-      await api.patch(`/appointments/${appointmentId}/complete`);
+      await api.patch(`/appointments/${appointmentId}/complete`, {
+        amount: parsedAmount,
+      });
       await loadAppointments();
     } catch (err) {
       setError(err?.response?.data?.message || "Failed to complete appointment");
     } finally {
       setUpdatingId(null);
     }
+  };
+
+  const handlePay = () => {
+    setError("Payment flow is not implemented yet");
   };
 
   const startReview = (appointment) => {
@@ -166,6 +179,7 @@ const MyAppointmentsScreen = () => {
           const isCompleted = item.status === "completed";
           const canComplete = isDoctor && !isCompleted && item.status !== "cancelled";
           const canReview = isPatient && isCompleted;
+          const amountDraft = completionAmounts[item._id] ?? "";
           const draft = reviewDrafts[item._id] || {
             rating: item.review?.rating ? String(item.review.rating) : "",
             comment: item.review?.comment || "",
@@ -173,6 +187,7 @@ const MyAppointmentsScreen = () => {
           const isEditingReview = activeReviewId === item._id;
           const isSavingReview = reviewSavingId === item._id;
           const isDeletingReview = reviewDeletingId === item.review?._id;
+          const showPayment = isPatient && isCompleted && item.amount;
 
           return (
             <View style={styles.card}>
@@ -181,15 +196,40 @@ const MyAppointmentsScreen = () => {
               <Text style={styles.cardMeta}>Date: {dateLabel || "N/A"}</Text>
               <Text style={styles.cardMeta}>Time: {item.timeSlot || "N/A"}</Text>
               <Text style={styles.cardMeta}>Status: {item.status || "pending"}</Text>
+              {item.amount ? (
+                <Text style={styles.cardMeta}>Amount: Rs. {item.amount}</Text>
+              ) : null}
               {canComplete ? (
-                <Pressable
-                  style={[styles.completeButton, updatingId === item._id && styles.btnDisabled]}
-                  onPress={() => handleComplete(item._id)}
-                  disabled={updatingId === item._id}
-                >
-                  <Text style={styles.completeButtonText}>
-                    {updatingId === item._id ? "Completing..." : "Mark Completed"}
-                  </Text>
+                <View style={styles.completeSection}>
+                  <TextInput
+                    style={styles.amountInput}
+                    keyboardType="numeric"
+                    placeholder="Amount (LKR)"
+                    value={amountDraft}
+                    onChangeText={(value) =>
+                      setCompletionAmounts((prev) => ({
+                        ...prev,
+                        [item._id]: value,
+                      }))
+                    }
+                  />
+                  <Pressable
+                    style={[
+                      styles.completeButton,
+                      updatingId === item._id && styles.btnDisabled,
+                    ]}
+                    onPress={() => handleComplete(item._id)}
+                    disabled={updatingId === item._id}
+                  >
+                    <Text style={styles.completeButtonText}>
+                      {updatingId === item._id ? "Confirming..." : "Confirm"}
+                    </Text>
+                  </Pressable>
+                </View>
+              ) : null}
+              {showPayment ? (
+                <Pressable style={styles.payButton} onPress={handlePay}>
+                  <Text style={styles.payButtonText}>Pay</Text>
                 </Pressable>
               ) : null}
               {canReview ? (
@@ -323,13 +363,35 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     marginTop: 12,
   },
+  completeSection: {
+    marginTop: 12,
+  },
   completeButtonText: {
     color: "#ffffff",
     textAlign: "center",
     fontWeight: "600",
   },
+  amountInput: {
+    borderWidth: 1,
+    borderColor: "#d1d5db",
+    borderRadius: 10,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    fontSize: 12,
+  },
   btnDisabled: {
     opacity: 0.6,
+  },
+  payButton: {
+    marginTop: 10,
+    backgroundColor: "#16a34a",
+    borderRadius: 10,
+    paddingVertical: 10,
+  },
+  payButtonText: {
+    color: "#ffffff",
+    textAlign: "center",
+    fontWeight: "600",
   },
   reviewSection: {
     marginTop: 14,
