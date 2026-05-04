@@ -11,6 +11,7 @@ const patientRoutes = require("./routes/patientRoutes");
 const medicineStripRoutes = require("./routes/medicineStripRoutes");
 
 const app = express();
+const port = process.env.PORT || 4000;
 
 app.use(cors());
 app.use(express.json());
@@ -18,6 +19,13 @@ app.use(morgan("dev"));
 
 app.get("/health", (req, res) => {
   res.json({ status: "ok" });
+});
+
+app.get("/", (req, res) => {
+  res.json({
+    message: "E-chanelling API is running",
+    health: "/health",
+  });
 });
 
 app.use("/auth", authRoutes);
@@ -28,4 +36,9 @@ app.use("/users", userRoutes);
 app.use("/patients", patientRoutes);
 app.use("/medicine-strip", medicineStripRoutes);
 
-module.exports = app;
+const startServer = () =>
+  app.listen(port, () => {
+    console.log(`Server listening on port ${port}`);
+  });
+
+module.exports = { app, startServer };

@@ -6,10 +6,8 @@ require("dotenv").config({
 });
 
 const { connectDb } = require("./config/db");
-const app = require("./app");
+const { startServer } = require("./app");
 const User = require("./models/User");
-
-const port = process.env.PORT || 4000;
 
 const ensureAdminUser = async () => {
   const adminEmail = "adminchanneling@gmail.com";
@@ -35,9 +33,7 @@ const ensureAdminUser = async () => {
 connectDb()
   .then(async () => {
     await ensureAdminUser();
-    app.listen(port, () => {
-      console.log(`Server listening on port ${port}`);
-    });
+    startServer();
   })
   .catch((error) => {
     console.error("Failed to connect to MongoDB", error);
