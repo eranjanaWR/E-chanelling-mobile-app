@@ -130,7 +130,9 @@ const MyAppointmentsScreen = () => {
       setActiveReviewId(null);
       await loadAppointments();
     } catch (err) {
-      setError(err?.response?.data?.message || "Failed to save review");
+      setError(
+        err?.response?.data?.message || err?.message || "Failed to add review"
+      );
     } finally {
       setReviewSavingId(null);
     }

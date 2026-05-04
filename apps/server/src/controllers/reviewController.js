@@ -26,6 +26,7 @@ const listReviews = async (req, res) => {
 
     return res.json({ reviews });
   } catch (error) {
+    console.error("listReviews error", error);
     return res.status(500).json({ message: "Failed to fetch reviews" });
   }
 };
@@ -93,7 +94,11 @@ const createReview = async (req, res) => {
 
     return res.status(201).json({ review: populated || review });
   } catch (error) {
-    return res.status(500).json({ message: "Failed to create review" });
+    if (error?.code === 11000) {
+      return res.status(409).json({ message: "Review already exists" });
+    }
+    console.error("createReview error", error);
+    return res.status(500).json({ message: error?.message || "Failed to create review" });
   }
 };
 
@@ -146,7 +151,8 @@ const updateReview = async (req, res) => {
 
     return res.json({ review: updated });
   } catch (error) {
-    return res.status(500).json({ message: "Failed to update review" });
+    console.error("updateReview error", error);
+    return res.status(500).json({ message: error?.message || "Failed to update review" });
   }
 };
 
@@ -174,7 +180,8 @@ const deleteReview = async (req, res) => {
 
     return res.json({ message: "Review deleted" });
   } catch (error) {
-    return res.status(500).json({ message: "Failed to delete review" });
+    console.error("deleteReview error", error);
+    return res.status(500).json({ message: error?.message || "Failed to delete review" });
   }
 };
 
