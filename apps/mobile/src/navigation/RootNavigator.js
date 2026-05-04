@@ -20,6 +20,9 @@ import PatientProfileScreen from "../screens/PatientProfileScreen";
 import DoctorProfileScreen from "../screens/DoctorProfileScreen";
 import MedicalCenterFormScreen from "../screens/MedicalCenterFormScreen";
 import ManageTimeSlotsScreen from "../screens/ManageTimeSlotsScreen";
+import PatientListScreen from "../screens/PatientListScreen";
+import PatientNotesScreen from "../screens/PatientNotesScreen";
+import ViewMedicineStripScreen from "../screens/ViewMedicineStripScreen";
 
 const Stack = createNativeStackNavigator();
 
@@ -63,6 +66,21 @@ const AppStack = () => (
       name="ManageTimeSlots"
       component={ManageTimeSlotsScreen}
       options={{ title: "Time Slots" }}
+    />
+    <Stack.Screen
+      name="PatientList"
+      component={PatientListScreen}
+      options={{ title: "Medicine Strip" }}
+    />
+    <Stack.Screen
+      name="PatientNotes"
+      component={PatientNotesScreen}
+      options={({ route }) => ({ title: route.params?.patient?.name ?? "Patient Notes" })}
+    />
+    <Stack.Screen
+      name="ViewMedicineStrip"
+      component={ViewMedicineStripScreen}
+      options={{ title: "My Medicine Strip" }}
     />
   </Stack.Navigator>
 );
